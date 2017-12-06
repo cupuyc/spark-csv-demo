@@ -8,3 +8,5 @@ dependency-reduced-pom.xml
 *.swp
 metastore_db
 *.log
+
+output.json

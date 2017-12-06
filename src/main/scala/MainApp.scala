@@ -26,8 +26,12 @@ object MainApp {
   def main(args: Array[String]) {
 
     args.toList match {
-      case csvPath :: rulesPath :: _ => process(csvPath, rulesPath)
-      case _ => println("Expected 2 arguments. Run with `sparkdemo csvPath rulesPath`")
+      case csvPath :: rulesPath :: _ =>
+        val output = process(csvPath, rulesPath)
+        json.saveAsJsonFile(output, "output.json")
+        sparkSession.stop()
+
+      case _ => println(s"""Expected 2 arguments, but got ${args.length}. Run with `sbt "run {csvPath} {rulesPath}"`""")
     }
   }
 
@@ -45,7 +49,7 @@ object MainApp {
 
     // Step #3 transform
     val rulesString = Source.fromFile(rulesPath).getLines().mkString
-    val rules = parseRules(rulesString)
+    val rules = json.parseRules(rulesString)
 
     val df3 = transform(df2, rules)
 
@@ -58,6 +62,7 @@ object MainApp {
     val stats = gatherStats(df3)
     println("Show stats " + stats)
     stats
+    
   }
 
   def loadAndFilter(csvPath: String): DataFrame = sparkSession.read.option("header", "true").csv(csvPath)
@@ -98,16 +103,5 @@ object MainApp {
         case (name, i) => OutResult(name, countUniques.getLong(i), getPerValueCount(df, name).toList)
       })
       .toList
-  }
-
-  def parseRules(rulesRaw: String): Seq[TransformRule] = {
-    import org.json4s.native.JsonMethods
-    import org.json4s.{DefaultFormats}
-
-    implicit val jsonDefaultFormats = DefaultFormats
-
-    JsonMethods.parse(rulesRaw)
-      .camelizeKeys
-      .extract[List[TransformRule]]
   }
 }
